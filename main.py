@@ -40,16 +40,30 @@ def save_games(games):
 
 def get_price(app_id):
     url = f"https://store.steampowered.com/api/appdetails?appids={app_id}&cc=pl&filters=price_overview"
-    response = requests.get(url)
-    data = response.json()
-
     try:
-        price_data = data[str(app_id)]["data"]["price_overview"]
-        final_price = price_data["final"] / 100  # cents to PLN
-        discount = price_data.get("discount_percent", 0)
+        response = requests.get(url, timeout=10)
+        data = response.json()
+        
+        # Sometimes API returns empty dict or unexpected structure
+        if not data or str(app_id) not in data:
+            return None, None
+
+        app_data = data[str(app_id)]
+        if not app_data.get("success", False):
+            return None, None
+
+        price_info = app_data.get("data", {}).get("price_overview")
+        if not price_info:
+            return None, None
+
+        final_price = price_info["final"] / 100  # cents to PLN
+        discount = price_info.get("discount_percent", 0)
         return final_price, discount
-    except KeyError:
+
+    except Exception as e:
+        print(f"❌ Error fetching price for AppID {app_id}: {e}")
         return None, None
+
 
 # ---------------- Telegram Command Handler ----------------
 
