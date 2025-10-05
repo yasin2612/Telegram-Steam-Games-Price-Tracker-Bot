@@ -1,0 +1,14 @@
+{
+  "Cities Skylines 2": {
+    "app_id": "949230",
+    "threshold": 200
+  },
+  "Cyberpunk 2077": {
+    "app_id": "1091500",
+    "threshold": 120
+  },
+  "GTA V": {
+    "app_id": "271590",
+    "threshold": 80
+  }
+}
