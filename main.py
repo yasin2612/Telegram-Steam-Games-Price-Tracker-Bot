@@ -68,56 +68,68 @@ def get_price(app_id):
 # ---------------- Telegram Command Handler ----------------
 
 def handle_telegram_commands():
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates?offset=-1"
+    # Load last processed update_id
+    if os.path.exists("last_update.json"):
+        with open("last_update.json", "r") as f:
+            last_update_data = json.load(f)
+            last_update_id = last_update_data.get("last_update_id", 0)
+    else:
+        last_update_id = 0
+
+    # Fetch updates
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates?offset={last_update_id + 1}"
     response = requests.get(url).json()
-    
+
     if "result" not in response or not response["result"]:
         return
-    
-    last_item = response["result"][-1]
-    
-    # Check if "message" exists
-    if "message" not in last_item:
-        return
-    
-    if "text" not in last_item["message"]:
-        return
-    
-    last_message = last_item["message"]["text"]
 
     games = load_games()
-    message_to_send = ""
 
-    if last_message.startswith("/add"):
-        try:
-            _, name, app_id, threshold = last_message.split(" ", 3)
-            games[name] = {"app_id": app_id, "threshold": float(threshold)}
-            save_games(games)
-            message_to_send = f"✅ Added {name} with threshold {threshold} PLN"
-        except Exception:
-            message_to_send = "❌ Usage: /add <Game Name> <AppID> <Threshold>"
+    for item in response["result"]:
+        if "message" not in item or "text" not in item["message"]:
+            continue
 
-    elif last_message.startswith("/remove"):
-        try:
-            _, name = last_message.split(" ", 1)
-            if name in games:
-                del games[name]
+        message_text = item["message"]["text"]
+
+        message_to_send = ""
+
+        if message_text.startswith("/add"):
+            try:
+                _, name, app_id, threshold = message_text.split(" ", 3)
+                games[name] = {"app_id": app_id, "threshold": float(threshold)}
                 save_games(games)
-                message_to_send = f"✅ Removed {name}"
+                message_to_send = f"✅ Added {name} with threshold {threshold} PLN"
+            except Exception:
+                message_to_send = "❌ Usage: /add <Game Name> <AppID> <Threshold>"
+
+        elif message_text.startswith("/remove"):
+            try:
+                _, name = message_text.split(" ", 1)
+                if name in games:
+                    del games[name]
+                    save_games(games)
+                    message_to_send = f"✅ Removed {name}"
+                else:
+                    message_to_send = f"⚠ {name} not found"
+            except Exception:
+                message_to_send = "❌ Usage: /remove <Game Name>"
+
+        elif message_text.startswith("/list"):
+            if games:
+                lines = [f"{g}: AppID={games[g]['app_id']}, Threshold={games[g]['threshold']} PLN" for g in games]
+                message_to_send = "🎮 Tracked Games:\n" + "\n".join(lines)
             else:
-                message_to_send = f"⚠ {name} not found"
-        except Exception:
-            message_to_send = "❌ Usage: /remove <Game Name>"
+                message_to_send = "⚠ No games tracked yet."
 
-    elif last_message.startswith("/list"):
-        if games:
-            lines = [f"{g}: AppID={games[g]['app_id']}, Threshold={games[g]['threshold']} PLN" for g in games]
-            message_to_send = "🎮 Tracked Games:\n" + "\n".join(lines)
-        else:
-            message_to_send = "⚠ No games tracked yet."
+        if message_to_send:
+            send_telegram_message(message_to_send)
 
-    if message_to_send:
-        send_telegram_message(message_to_send)
+        # Update last_update_id after processing
+        last_update_id = max(last_update_id, item["update_id"])
+
+    # Save last processed update_id
+    with open("last_update.json", "w") as f:
+        json.dump({"last_update_id": last_update_id}, f)
 
 
 # ---------------- Price Check ----------------
