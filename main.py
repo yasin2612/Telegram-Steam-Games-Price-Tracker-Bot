@@ -56,9 +56,20 @@ def get_price(app_id):
 def handle_telegram_commands():
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates?offset=-1"
     response = requests.get(url).json()
+    
     if "result" not in response or not response["result"]:
         return
-    last_message = response["result"][-1]["message"]["text"]
+    
+    last_item = response["result"][-1]
+    
+    # Check if "message" exists
+    if "message" not in last_item:
+        return
+    
+    if "text" not in last_item["message"]:
+        return
+    
+    last_message = last_item["message"]["text"]
 
     games = load_games()
     message_to_send = ""
@@ -93,6 +104,7 @@ def handle_telegram_commands():
 
     if message_to_send:
         send_telegram_message(message_to_send)
+
 
 # ---------------- Price Check ----------------
 
